@@ -3,14 +3,24 @@ import twilio from 'twilio';
 import User from '@/models/userSchema';
 import connectDB from '@/utils/dbConnet';
 
-// Initialize Twilio client
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
-
 export async function POST(req: NextRequest) {
   try {
+    // Get Twilio credentials from environment variables
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    
+    // Validate Twilio credentials
+    if (!accountSid || !accountSid.startsWith('AC')) {
+      throw new Error('Invalid Twilio Account SID. Must start with "AC"');
+    }
+    
+    if (!authToken) {
+      throw new Error('Twilio Auth Token is required');
+    }
+    
+    // Initialize Twilio client with valid credentials
+    const twilioClient = twilio(accountSid, authToken);
+
     await connectDB();
     
     const formData = await req.formData();
@@ -32,14 +42,14 @@ export async function POST(req: NextRequest) {
         await user.save();
         
         // Ask for name first
-        await client.messages.create({
+        await twilioClient.messages.create({
           from: process.env.TWILIO_WHATSAPP_NUMBER,
           to: from,
           body: 'Hello! What is your name?'
         });
       } else if (user.onboardingStatus === 'completed') {
         // User already completed onboarding
-        await client.messages.create({
+        await twilioClient.messages.create({
           from: process.env.TWILIO_WHATSAPP_NUMBER,
           to: from,
           body: `Welcome back, ${user.userName}! How can I help you today?`
@@ -49,7 +59,7 @@ export async function POST(req: NextRequest) {
         user.onboardingStatus = 'awaiting_name';
         await user.save();
         
-        await client.messages.create({
+        await twilioClient.messages.create({
           from: process.env.TWILIO_WHATSAPP_NUMBER,
           to: from,
           body: 'Let\'s finish your onboarding. What is your name?'
@@ -63,7 +73,7 @@ export async function POST(req: NextRequest) {
         user.onboardingStatus = 'awaiting_age';
         await user.save();
         
-        await client.messages.create({
+        await twilioClient.messages.create({
           from: process.env.TWILIO_WHATSAPP_NUMBER,
           to: from,
           body: `Thanks, ${user.userName}! Now, what is your age?`
@@ -74,7 +84,7 @@ export async function POST(req: NextRequest) {
         
         if (isNaN(age)) {
           // Invalid age format
-          await client.messages.create({
+          await twilioClient.messages.create({
             from: process.env.TWILIO_WHATSAPP_NUMBER,
             to: from,
             body: 'Please provide a valid number for your age.'
@@ -85,7 +95,7 @@ export async function POST(req: NextRequest) {
           user.onboardingStatus = 'completed';
           await user.save();
           
-          await client.messages.create({
+          await twilioClient.messages.create({
             from: process.env.TWILIO_WHATSAPP_NUMBER,
             to: from,
             body: `Great! Your profile is complete. We've saved your name (${user.userName}) and age (${user.age}). You can now use our service.`
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
         }
       } else if (user.onboardingStatus === 'completed') {
         // User has completed onboarding and is sending a regular message
-        await client.messages.create({
+        await twilioClient.messages.create({
           from: process.env.TWILIO_WHATSAPP_NUMBER,
           to: from,
           body: `Hello ${user.userName}! How can I help you today?`
@@ -101,16 +111,25 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // This should rarely happen - no user record but not saying "hi"
-      await client.messages.create({
+      await twilioClient.messages.create({
         from: process.env.TWILIO_WHATSAPP_NUMBER,
         to: from,
         body: 'Hello! To get started, please send "hi" to begin the registration process.'
       });
     }
     
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error handling webhook:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ 
+      status: 'success',
+      message: 'Twilio onboarding successful' 
+    });
+  } catch (error: unknown) {
+    console.error('Twilio onboarding error:', error);
+    return NextResponse.json(
+      { 
+        status: 'error', 
+        message: error instanceof Error ? error.message : 'An error occurred' 
+      },
+      { status: 500 }
+    );
   }
 }
