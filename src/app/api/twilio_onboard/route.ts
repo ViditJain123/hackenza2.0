@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 import User from '@/models/userSchema';
+import UserQuery from '@/models/userQuerySchema';
 import connectDB from '@/utils/dbConnet';
+import OpenAI from 'openai';
 
 export async function POST(req: NextRequest) {
   console.log('📞 Twilio onboarding route called');
@@ -42,6 +44,11 @@ export async function POST(req: NextRequest) {
     let user = await User.findOne({ phoneNumber: from });
     console.log('👤 User lookup result:', user ? `Found user: ${user.userName || 'unnamed'}` : 'User not found');
     
+    // Initialize OpenAI client
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     if (messageBody.toLowerCase() === 'hi') {
       if (!user) {
         // Create a new user with initial onboarding status
@@ -130,14 +137,59 @@ export async function POST(req: NextRequest) {
           console.log('✅ Message sent:', message.sid);
         }
       } else if (user.onboardingStatus === 'completed') {
-        // User has completed onboarding and is sending a regular message
-        console.log('💬 Handling regular message from completed user:', user.userName);
-        const message = await twilioClient.messages.create({
-          from: process.env.TWILIO_WHATSAPP_NUMBER,
-          to: from,
-          body: `Hello ${user.userName}! How can I help you today?`
-        });
-        console.log('✅ Message sent:', message.sid);
+        // User has completed onboarding and is sending a health query
+        console.log('💬 Processing health query from user:', user.userName);
+        
+        try {
+          // Save the query to database
+          const userQuery = new UserQuery({
+            phoneNumber: from,
+            query: messageBody,
+            status: 'not_verified'
+          });
+          
+          // Process query with OpenAI
+          console.log('🤖 Sending to GPT-4o:', messageBody);
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: "You are a helpful AI assistant that provides medical information. Always be professional and compassionate. Remember you're not a doctor, so always include a disclaimer. Keep responses under 250 words."
+              },
+              {
+                role: "user",
+                content: messageBody
+              }
+            ],
+            max_tokens: 500,
+          });
+          
+          // Extract the response
+          const aiResponse = completion.choices[0].message.content;
+          console.log('🤖 AI response received:', aiResponse);
+          
+          // Add disclaimer and save response
+          const fullResponse = `${aiResponse}\n\n*This response is not yet verified by the doctor.*`;
+          userQuery.response = fullResponse;
+          await userQuery.save();
+          
+          // Send response to user
+          const message = await twilioClient.messages.create({
+            from: process.env.TWILIO_WHATSAPP_NUMBER,
+            to: from,
+            body: fullResponse
+          });
+          console.log('✅ Message sent:', message.sid);
+        } catch (aiError) {
+          console.error('❌ AI processing error:', aiError);
+          const message = await twilioClient.messages.create({
+            from: process.env.TWILIO_WHATSAPP_NUMBER,
+            to: from,
+            body: "I'm sorry, I couldn't process your health query at the moment. Please try again later."
+          });
+          console.log('✅ Error message sent:', message.sid);
+        }
       }
     } else {
       // This should rarely happen - no user record but not saying "hi"
