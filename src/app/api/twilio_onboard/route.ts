@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
             // If there was a response, add it too
             if (query.response) {
               // Remove the disclaimer from previous responses for cleaner context
-              let assistantResponse = query.response.replace(/\n\n\*This response is not yet verified by the doctor\.\*$/, '');
+              const assistantResponse = query.response.replace(/\n\n\*This response is not yet verified by the doctor\.\*$/, '');
               
               conversationHistory.push({
                 role: "assistant",
