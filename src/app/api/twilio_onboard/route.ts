@@ -4,6 +4,7 @@ import User from '@/models/userSchema';
 import UserQuery from '@/models/userQuerySchema';
 import connectDB from '@/utils/dbConnet';
 import OpenAI from 'openai';
+import { ChatCompletionMessageParam } from 'openai/resources';
 
 export async function POST(req: NextRequest) {
   console.log('📞 Twilio onboarding route called');
@@ -148,20 +149,58 @@ export async function POST(req: NextRequest) {
             status: 'not_verified'
           });
           
+          // Fetch previous conversations from the past 24 hours
+          const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const previousQueries = await UserQuery.find({
+            phoneNumber: from,
+            createdAt: { $gte: twentyFourHoursAgo }
+          }).sort({ createdAt: 1 }); // Sort by oldest first
+          
+          console.log(`📚 Found ${previousQueries.length} previous queries in the last 24 hours`);
+          // Build conversation history for context
+          const conversationHistory: ChatCompletionMessageParam[] = [];
+          
+          // Add system message first
+          conversationHistory.push({
+            role: "system",
+            content: `You are a helpful AI assistant that provides medical information. 
+                     Always be professional and compassionate. 
+                     The user's name is ${user.userName} and they are ${user.age} years old.
+                     Remember you're not a doctor, so always include a disclaimer. 
+                     Keep responses under 250 words.`
+          });
+          
+          // Add previous conversations as context
+          previousQueries.forEach(query => {
+            // Add user's previous question
+            conversationHistory.push({
+              role: "user",
+              content: query.query
+            });
+            
+            // If there was a response, add it too
+            if (query.response) {
+              // Remove the disclaimer from previous responses for cleaner context
+              let assistantResponse = query.response.replace(/\n\n\*This response is not yet verified by the doctor\.\*$/, '');
+              
+              conversationHistory.push({
+                role: "assistant",
+                content: assistantResponse
+              });
+            }
+          });
+          
+          // Add the current question
+          conversationHistory.push({
+            role: "user",
+            content: messageBody
+          });
+          
           // Process query with OpenAI
-          console.log('🤖 Sending to GPT-4o:', messageBody);
+          console.log('🤖 Sending to GPT-4o with conversation history');
           const completion = await openai.chat.completions.create({
             model: "gpt-4o",
-            messages: [
-              {
-                role: "system",
-                content: "You are a helpful AI assistant that provides medical information. Always be professional and compassionate. Remember you're not a doctor, so always include a disclaimer. Keep responses under 250 words."
-              },
-              {
-                role: "user",
-                content: messageBody
-              }
-            ],
+            messages: conversationHistory,
             max_tokens: 500,
           });
           
