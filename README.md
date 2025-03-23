@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏥 Hackenza 2.0 — Patient Clinic Portal
 
-## Getting Started
+A full-stack health-tech platform developed for **Hackenza 2025**, enabling patients to submit health-related queries and receive AI-powered responses, later verified by certified medical professionals.
 
-First, run the development server:
+📍 **Live Demo**: [https://hackenza.vercel.app](https://hackenza.vercel.app)  
+📦 **GitHub Repo**: [https://github.com/ViditJain123/hackenza2.0](https://github.com/ViditJain123/hackenza2.0)
+
+---
+
+## 🚀 Features
+
+- 🧑‍💻 **AI Assistance**: Uses OpenAI to provide preliminary responses to patient questions.
+- ✅ **Doctor Verification**: Every AI response is verified by real doctors for accuracy.
+- 📲 **WhatsApp Notifications**: Integrated with Twilio for message updates.
+- 🧾 **Secure Authentication**: User login and signup managed via Clerk.
+- 🗃️ **MongoDB Storage**: Stores queries and responses with security and scalability.
+
+---
+
+## 🧑‍🔧 Tech Stack
+
+| Layer      | Tech Used             |
+|------------|------------------------|
+| Frontend   | Next.js                |
+| Backend    | Nexus (GraphQL)        |
+| Auth       | Clerk                  |
+| AI         | OpenAI API             |
+| Messaging  | Twilio API (WhatsApp)  |
+| Database   | MongoDB Atlas          |
+| Hosting    | Vercel                 |
+
+---
+
+---
+
+## ⚙️ Getting Started
+
+### 1. Clone the repo
 
 ```bash
+git clone https://github.com/ViditJain123/hackenza2.0.git
+cd hackenza2.0
+npm install
+# or
+yarn install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
