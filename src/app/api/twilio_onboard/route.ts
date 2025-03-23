@@ -26,22 +26,9 @@ export async function POST(req: NextRequest) {
     const twilioClient = twilio(accountSid, authToken);
 
     console.log('🔄 Connecting to database...');
+    await connectDB();
+    console.log('✅ Database connected');
     
-    // Add timeout handling for database connection
-    const dbConnectionPromise = connectDB();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database connection timeout after 5 seconds')), 5000);
-    });
-    
-    try {
-      await Promise.race([dbConnectionPromise, timeoutPromise]);
-      console.log('✅ Database connected successfully');
-    } catch (dbError) {
-      console.error('❌ Database connection failed:', dbError);
-      throw new Error(`Database connection error: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
-    }
-    
-    console.log('📊 Parsing form data...');
     const formData = await req.formData();
     const body = Object.fromEntries(formData);
     
@@ -175,8 +162,6 @@ export async function POST(req: NextRequest) {
     } else {
       console.error('Unknown error type:', typeof error);
     }
-    
-    // Ensure we return a response even on error to prevent hanging
     return NextResponse.json(
       { 
         status: 'error', 
