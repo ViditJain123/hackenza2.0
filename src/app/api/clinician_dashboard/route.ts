@@ -5,46 +5,37 @@ import Clinician from '@/models/clinicianSchema';
 import twilio from 'twilio';
 import { auth } from '@clerk/nextjs/server';
 
-// Define an interface for the query filter
 interface QueryFilter {
   status: string;
   doctorCategory?: string;
 }
 
-// GET: Fetch queries for a clinician based on their specialty
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
-    // Get authenticated user ID from Clerk
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get clinician data to determine specialty
     const clinician = await Clinician.findOne({ clerkId: userId });
     if (!clinician) {
       return NextResponse.json({ error: 'Clinician not found' }, { status: 404 });
     }
 
-    // Extract query parameters
     const searchParams = req.nextUrl.searchParams;
     const status = searchParams.get('status') || 'not_verified';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    // Prepare filter conditions
     const filter: QueryFilter = { status };
 
-    // Only filter by specialty if not fetching 'verified' queries
-    // This allows doctors to see all verified queries, not just their specialty
     if (status === 'not_verified') {
       filter.doctorCategory = clinician.specialty;
     }
 
-    // Fetch queries with pagination
     const queries = await UserQuery.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -130,7 +121,6 @@ export async function POST(req: NextRequest) {
 
       if (accountSid && authToken) {
         try {
-          // Validate Twilio credentials properly
           if (!accountSid || !accountSid.startsWith('AC')) {
             console.error('❌ Invalid Twilio Account SID:', accountSid);
             throw new Error('Invalid Twilio Account SID. Must start with "AC"');
@@ -143,31 +133,55 @@ export async function POST(req: NextRequest) {
 
           console.log('✅ Twilio credentials validated');
 
-          // Create Twilio client with validated credentials
           const twilioClient = twilio(accountSid, authToken);
 
-          // Improved message templates with consistent formatting
+          // Helper function to truncate text to fit the message limit
+          const truncateText = (text: string, maxLength: number): string => {
+            if (!text) return '';
+            return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+          };
+
+          // Set max lengths for different parts of the message to ensure total stays under 1600
+          const MAX_QUERY_LENGTH = 100;
+          const MAX_RESPONSE_LENGTH = 400;
+          const MAX_COMMENT_LENGTH = 300;
+
+          // Truncate long text fields
+          const truncatedQuery = truncateText(query.query, MAX_QUERY_LENGTH);
+          const truncatedResponse = truncateText(query.response, MAX_RESPONSE_LENGTH);
+          const truncatedComment = truncateText(
+            doctorComment || (status === 'verified' 
+              ? 'The information provided is medically accurate.' 
+              : 'Please consult with a healthcare provider for accurate guidance on this matter.'),
+            MAX_COMMENT_LENGTH
+          );
+
           let messageTemplate = '';
 
           if (status === 'verified') {
             messageTemplate =
               `*Healthcare Query Verification*\n\n` +
-              `Your question: "${query.query}"\n\n` +
+              `Your question: "${truncatedQuery}"\n\n` +
               `*Status*: ✅ Verified by a ${clinician.specialty} specialist\n\n` +
-              `*AI Response*:\n${query.response}\n\n` +
-              `*Doctor's Comment*:\n${doctorComment || 'The information provided is medically accurate.'}\n\n` +
+              `*AI Response*:\n${truncatedResponse}\n\n` +
+              `*Doctor's Comment*:\n${truncatedComment}\n\n` +
               `Thank you for using our service. For medical emergencies, always consult a healthcare provider immediately.`;
           } else {
             messageTemplate =
               `*Healthcare Query Verification*\n\n` +
-              `Your question: "${query.query}"\n\n` +
+              `Your question: "${truncatedQuery}"\n\n` +
               `*Status*: ⚠️ The AI response requires clarification\n\n` +
-              `*AI Response*:\n${query.response}\n\n` +
-              `*Doctor's Correction*:\n${doctorComment || 'Please consult with a healthcare provider for accurate guidance on this matter.'}\n\n` +
+              `*AI Response*:\n${truncatedResponse}\n\n` +
+              `*Doctor's Correction*:\n${truncatedComment}\n\n` +
               `Thank you for using our service. For medical emergencies, always consult a healthcare provider immediately.`;
           }
 
-          // Ensure phone number is properly formatted with WhatsApp prefix
+          // Check final message length
+          if (messageTemplate.length > 1600) {
+            console.warn(`⚠️ Message still too long (${messageTemplate.length} chars). Applying additional truncation.`);
+            messageTemplate = messageTemplate.substring(0, 1590) + '...';
+          }
+
           const toNumber = query.phoneNumber.startsWith('whatsapp:')
             ? query.phoneNumber
             : `whatsapp:${query.phoneNumber}`;
@@ -185,7 +199,6 @@ export async function POST(req: NextRequest) {
         } catch (error) {
           console.error('❌ Failed to send Twilio notification:', error);
 
-          // Type guard to check if the error is from Twilio
           const twilioError = error as { status?: number; code?: string; moreInfo?: string; details?: unknown };
 
           console.error('Error details:', JSON.stringify({
