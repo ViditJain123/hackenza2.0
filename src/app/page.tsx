@@ -7,12 +7,11 @@ import { useAuth } from '@clerk/nextjs'
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true)
   const [redirectAttempted, setRedirectAttempted] = useState(false)
-  const { userId } = useAuth()
+  const { userId, isLoaded: authLoaded } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     async function checkOnboardingStatus() {
-      // Prevent multiple redirect attempts
       if (redirectAttempted) return;
       
       try {
@@ -21,19 +20,27 @@ export default function Home() {
           return
         }
 
-        setRedirectAttempted(true); // Mark that we're attempting a redirect
-        const response = await fetch(`/api/clinician_onboard/status?clerkId=${userId}`)
+        setRedirectAttempted(true);
+        // Add cache-busting parameter to prevent stale responses
+        const response = await fetch(`/api/clinician_onboard/status?clerkId=${userId}&t=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+        
         const data = await response.json()
-
-        // Check if user needs to complete onboarding
-        if (data.isOnboarded && 
-            data.user?.name && 
-            data.user?.email && 
-            data.user?.specialty) {
-          // User is fully onboarded, redirect to dashboard or main page
-          router.push('/dashboard')
+        
+        console.log('Onboarding status:', data); // Debug output
+        
+        if (data.isOnboarded) {
+          // Immediate redirect for onboarded users
+          window.location.href = '/dashboard'; // Using window.location for hard redirect
         } else {
-          // User needs to complete onboarding
           router.push('/onboard')
         }
       } catch (error) {
@@ -42,22 +49,33 @@ export default function Home() {
       }
     }
 
-    if (userId && !redirectAttempted) {
-      checkOnboardingStatus()
-    } else if (!userId) {
-      setIsLoading(false)
+    // Only run the check once auth is loaded and we have a userId
+    if (authLoaded) {
+      if (userId && !redirectAttempted) {
+        checkOnboardingStatus()
+      } else if (!userId) {
+        setIsLoading(false)
+      }
     }
-  }, [userId, router, redirectAttempted])
+  }, [userId, router, redirectAttempted, authLoaded])
 
+  // Show loading indicator while checking status
   if (isLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl mb-4">Loading your profile...</h2>
+          <div className="animate-pulse h-2 w-24 bg-gray-300 rounded mx-auto"></div>
+        </div>
+      </div>
+    )
   }
 
   // Show a welcome page if not redirecting
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Welcome to Hackenza</h1>
-      <p>Loading your profile...</p>
+      <p>Please sign in to continue</p>
     </div>  
   )
 }

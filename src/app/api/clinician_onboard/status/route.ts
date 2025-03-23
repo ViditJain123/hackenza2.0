@@ -26,7 +26,8 @@ export async function GET(req: NextRequest) {
     const user = await User.findOne({ clerkId })
     
     return NextResponse.json({
-      isOnboarded: user ? user.isOnboarded : false
+      isOnboarded: user ? user.isOnboarded : false,
+      user: user ? user : null
     })
   } catch (error: unknown) {
     console.error('Status check error:', error)

@@ -5,7 +5,10 @@ interface IUserQuery extends Document {
     query: string;
     status: string;
     response: string;
-    doctorCategory: string; // New field for doctor category
+    doctorCategory: string;
+    doctorComment?: string; // New field for doctor's comments
+    verifiedBy?: string; // Reference to clinician who verified
+    verifiedAt?: Date; // When the verification happened
     createdAt: Date;
 }
 
@@ -20,15 +23,28 @@ const userQuerySchema = new Schema<IUserQuery>({
     },
     status: {
         type: String,
-        enum: ['verified', 'not_verified'],
+        enum: ['verified', 'not_verified', 'incorrect'],
         default: 'not_verified'
     },
     response: {
         type: String,
         required: false
     },
-    doctorCategory: { // New field added to schema
+    doctorCategory: {
         type: String,
+        required: false
+    },
+    doctorComment: {
+        type: String,
+        required: false
+    },
+    verifiedBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'Clinician',
+        required: false
+    },
+    verifiedAt: {
+        type: Date,
         required: false
     },
     createdAt: {
@@ -39,6 +55,7 @@ const userQuerySchema = new Schema<IUserQuery>({
     timestamps: true
 });
 
-const UserQuery = mongoose.model<IUserQuery>('UserQuery', userQuerySchema);
+// Prevent model overwrite by checking if model already exists
+const UserQuery = mongoose.models.UserQuery || mongoose.model<IUserQuery>('UserQuery', userQuerySchema);
 
 export default UserQuery;
