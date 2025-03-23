@@ -9,7 +9,6 @@ import { ChatCompletionMessageParam } from 'openai/resources';
 export async function POST(req: NextRequest) {
   console.log('📞 Twilio onboarding route called');
   try {
-    // Get Twilio credentials from environment variables
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     

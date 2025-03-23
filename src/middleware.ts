@@ -1,6 +1,11 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)','/api/twilio_onboard','/api/twilio_chat'])
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/api/twilio_onboard',
+  '/api/twilio_chat',
+  '/api/clinician_onboard/status'
+])
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
