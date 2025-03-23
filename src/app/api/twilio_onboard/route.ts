@@ -10,7 +10,6 @@ export async function POST(req: NextRequest) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     
-    // Validate Twilio credentials
     if (!accountSid || !accountSid.startsWith('AC')) {
       console.error('❌ Invalid Twilio Account SID:', accountSid);
       throw new Error('Invalid Twilio Account SID. Must start with "AC"');
