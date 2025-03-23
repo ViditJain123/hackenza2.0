@@ -26,26 +26,8 @@ export async function POST(req: NextRequest) {
     const twilioClient = twilio(accountSid, authToken);
 
     console.log('🔄 Connecting to database...');
-    
-    // Add a timeout race pattern for database connection
-    try {
-      const dbConnectionPromise = connectDB();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Database connection timeout after 5 seconds')), 100000);
-      });
-      
-      await Promise.race([dbConnectionPromise, timeoutPromise]);
-      console.log('✅ Database connected successfully');
-    } catch (dbError) {
-      console.error('❌ Database connection failed:', dbError);
-      return NextResponse.json(
-        { 
-          status: 'error', 
-          message: 'Database connection timed out. Please try again later.' 
-        },
-        { status: 503 } // Service Unavailable
-      );
-    }
+    await connectDB();
+    console.log('✅ Database connected successfully');
     
     // Parse form data after successful DB connection
     console.log('📄 Parsing form data...');
