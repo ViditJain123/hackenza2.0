@@ -5,6 +5,8 @@ import UserQuery from '@/models/userQuerySchema';
 import connectDB from '@/utils/dbConnet';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources';
+import { z } from 'zod';
+import { zodResponseFormat } from 'openai/helpers/zod';
 
 export async function POST(req: NextRequest) {
   console.log('📞 Twilio onboarding route called');
@@ -165,7 +167,9 @@ export async function POST(req: NextRequest) {
             content: `You are a helpful AI assistant that provides medical information. 
                      Always be professional and compassionate. 
                      The user's name is ${user.userName} and they are ${user.age} years old.
-                     Remember you're not a doctor, so always include a disclaimer. 
+                     Remember you're not a doctor, so always include a disclaimer.
+                     Determine the most appropriate medical specialty category for the query.
+                     Response must be structured with medical explanation and relevant doctor category.
                      Keep responses under 250 words.`
           });
           
@@ -195,21 +199,30 @@ export async function POST(req: NextRequest) {
             content: messageBody
           });
           
-          // Process query with OpenAI
-          console.log('🤖 Sending to GPT-4o with conversation history');
+          // Define schema for structured output
+          const outputSchema = z.object({
+            response: z.string().describe("The medical information response to the user query"),
+            doctorCategory: z.string().describe("The appropriate medical specialty for this query (e.g., Cardiology, Dermatology, Neurology, Pediatrics, etc.)")
+          });
+          
+          // Process query with OpenAI using structured output
+          console.log('🤖 Sending to GPT-4o with conversation history for structured output');
           const completion = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: conversationHistory,
+            response_format: zodResponseFormat(outputSchema, "json"),
             max_tokens: 500,
           });
           
-          // Extract the response
-          const aiResponse = completion.choices[0].message.content;
-          console.log('🤖 AI response received:', aiResponse);
+          // Extract the structured response
+          const content = completion.choices[0].message.content || '{}';
+          const structuredResponse = JSON.parse(content);
+          console.log('🤖 AI structured response received:', structuredResponse);
           
           // Add disclaimer and save response
-          const fullResponse = `${aiResponse}\n\n*This response is not yet verified by the doctor.*`;
+          const fullResponse = `${structuredResponse.response}\n\n*This response is not yet verified by the doctor.*`;
           userQuery.response = fullResponse;
+          userQuery.doctorCategory = structuredResponse.doctorCategory;
           await userQuery.save();
           
           // Send response to user

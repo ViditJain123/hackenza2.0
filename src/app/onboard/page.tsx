@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import { ClinicianSpecialty } from '@/types/clinician'
 
 export default function OnboardPage() {
   const { user, isLoaded } = useUser()
@@ -84,10 +85,10 @@ export default function OnboardPage() {
         throw new Error(data.message || 'Something went wrong')
       }
 
-      // Redirect to root route after successful onboarding
-      router.push('/')
-    } catch (err: any) {
-      setError(err.message)
+      // Redirect directly to dashboard after successful onboarding
+      router.push('/dashboard')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setLoading(false)
     }
@@ -130,14 +131,20 @@ export default function OnboardPage() {
         
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Specialty *</label>
-          <input
-            type="text"
+          <select
             name="specialty"
             value={formData.specialty}
             onChange={handleChange}
             required
             className="w-full p-2 border rounded"
-          />
+          >
+            <option value="" disabled>Select your specialty</option>
+            {Object.values(ClinicianSpecialty).map((specialty) => (
+              <option key={specialty} value={specialty}>
+                {specialty}
+              </option>
+            ))}
+          </select>
         </div>
         
         <div className="mb-4">

@@ -5,6 +5,7 @@ interface IUserQuery extends Document {
     query: string;
     status: string;
     response: string;
+    doctorCategory: string; // New field for doctor category
     createdAt: Date;
 }
 
@@ -23,6 +24,10 @@ const userQuerySchema = new Schema<IUserQuery>({
         default: 'not_verified'
     },
     response: {
+        type: String,
+        required: false
+    },
+    doctorCategory: { // New field added to schema
         type: String,
         required: false
     },

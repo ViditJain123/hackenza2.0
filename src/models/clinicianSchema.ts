@@ -1,25 +1,36 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
+import { ClinicianSpecialty } from '@/types/clinician';
 
-interface IUser extends Document {
+export interface Clinician extends Document {
   clerkId: string;
   name: string;
   email: string;
-  specialty: string;
+  specialty: ClinicianSpecialty;
   phoneNumber?: string;
-  isOnboarded: boolean;
+  isOnboarded?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const userSchema = new Schema<IUser>({
-  clerkId: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
-  email: { type: String, required: true },
-  specialty: { type: String, required: true },
-  phoneNumber: { type: String },
-  isOnboarded: { type: Boolean, default: false }
-}, {
-  timestamps: true 
-});
+const clinicianSchema = new Schema<Clinician>(
+  {
+    clerkId: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+    specialty: { 
+      type: String, 
+      required: true,
+      enum: Object.values(ClinicianSpecialty)
+    },
+    phoneNumber: { type: String }
+  },
+  { timestamps: true }
+);
 
-const User = mongoose.model<IUser>('User', userSchema);
+// Only create the model on the server side
+const Clinician = (mongoose.models?.Clinician || 
+  (typeof window === 'undefined' ? mongoose.model<Clinician>('Clinician', clinicianSchema) : null)) as 
+  mongoose.Model<Clinician>;
 
-export default User;
+export { ClinicianSpecialty };
+export default Clinician;

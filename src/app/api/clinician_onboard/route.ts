@@ -56,10 +56,11 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json({ message: 'Clinician onboarded successfully' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Onboarding error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { message: 'Internal server error', error: error.message },
+      { message: 'Internal server error', error: errorMessage },
       { status: 500 }
     )
   }
